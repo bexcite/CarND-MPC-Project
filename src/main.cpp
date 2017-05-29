@@ -2,6 +2,7 @@
 #include <uWS/uWS.h>
 #include <chrono>
 #include <iostream>
+#include <iomanip>
 #include <thread>
 #include <vector>
 #include "Eigen-3.3/Eigen/Core"
@@ -200,6 +201,8 @@ int main() {
           }
 
 
+          // Testing model params (to find out the real value of correct physics in "our world"
+
           delta_dist = 1.60934 * prev_speed * dt/3600.0;
           cycle_dist += delta_dist;
 
@@ -227,7 +230,7 @@ int main() {
           std::cout << "C_DIST_EST = " << cycle_dist_est << std::endl;
           std::cout << "C_DIST_XY  = " << cycle_dist_xy << std::endl;
 
-
+          // <<<<<< end of testing
 
 
 
@@ -300,8 +303,7 @@ int main() {
           auto coeffs = polyfit(ptsx_v, ptsy_v, polyOrder);
 
 
-          // MPC Solve
-          //auto vars = mpc.Solve(state, coeffs);
+
 
 
 
@@ -352,7 +354,7 @@ int main() {
 //          std::cout << "transf: " << jtemp.dump() << std::endl;
 
 
-
+/*
           mpc_x_vals.resize(pts_size);
           mpc_y_vals.resize(pts_size);
           for (int i = 0; i < pts_size; ++i) {
@@ -370,13 +372,14 @@ int main() {
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
+*/
 
 
           //Display the waypoints/reference line
 //          vector<double> next_x_vals = {10.0, 20.0, 100.0, 200.0, 600.0};
 //          vector<double> next_y_vals = {0.0, 0.0, 0.0, 0.0, 0.0};
-          vector<double> next_x_vals = ptsx;
-          vector<double> next_y_vals = ptsy;
+          vector<double> next_x_vals; // = ptsx;
+          vector<double> next_y_vals; // = ptsy;
 //          vector<double> next_x_vals = {-9.93,11.95,34.12,53.85,74.31,96.88};
 //          vector<double> next_y_vals = {19.48,42.54,66.68,88.81,112.49,139.38};
 //          vector<double> next_x_vals = {9.93,11.95,34.12,53.85,74.31,96.88};
@@ -386,13 +389,25 @@ int main() {
                   //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
 
+          next_x_vals.resize(pts_size);
+          next_y_vals.resize(pts_size);
+          for (int i = 0; i < pts_size; ++i) {
+            next_x_vals[i] = ptsx[i];
+            next_y_vals[i] = polyeval(coeffs, ptsx[i]);
+//            std::cout << "mpc_xy_vals[" << i << "] = ("
+//                      << mpc_x_vals[i] << ", " << mpc_y_vals[i] << ")" << std::endl;
+          }
+
+
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
 
 
           // Calculate current CTE
           double cte = polyeval(coeffs, 0); // expected - current (y = 0)
-          std::cout << "CTE = " << cte << std::endl;
+          double epsi = - atan(coeffs[1] + coeffs[2] * 0.0); // mul 0.0 left for clarity here x = 0.0
+          std::cout << "CTE  = " << cte << std::endl;
+          std::cout << "EPSI = " << epsi << std::endl;
 
 
           /*
@@ -401,10 +416,104 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value = -0.06 * cte;
-          double throttle_value = 0.9;
-          prev_throttle = throttle_value;
-          prev_steer_value = steer_value;
+          double steer_value = 0.6; // * cte;
+          double throttle_value = 0.2;
+
+
+
+          // Initialize start state (we calculate everything in car coordinate)
+          Eigen::VectorXd state_mpc(6);
+          state_mpc << 0.0, 0.0, 0.0, v, cte, epsi;
+
+          // MPC Solve
+          auto vars = mpc.Solve(state_mpc, coeffs, state_history.averageDt());
+
+          size_t nn = size_t(vars[0]);
+          size_t x_start = 1;
+          size_t y_start = x_start + nn;
+          size_t psi_start = y_start + nn;
+          size_t v_start = psi_start + nn;
+          size_t cte_start = v_start + nn;
+          size_t epsi_start = cte_start + nn;
+          size_t delta_start = epsi_start + nn;
+          size_t a_start = delta_start + nn - 1;
+
+
+
+          std::cout << "XXS = " << std::fixed << std::setprecision(4);
+          for (int i = x_start; i < y_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "YYS = " << std::fixed << std::setprecision(4);
+          for (int i = y_start; i < psi_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "PSIS = " << std::fixed << std::setprecision(4);
+          for (int i = psi_start; i < v_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "VVS = " << std::fixed << std::setprecision(4);
+          for (int i = v_start; i < cte_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "CTES = " << std::fixed << std::setprecision(4);
+          for (int i = cte_start; i < epsi_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "EPSI = " << std::fixed << std::setprecision(4);
+          for (int i = epsi_start; i < delta_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "DELTAS = " << std::fixed << std::setprecision(4);
+          for (int i = delta_start; i < a_start; ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+          std::cout << "AAS = " << std::fixed << std::setprecision(4);
+          for (int i = a_start; i < vars.size(); ++i) {
+            std::cout << vars[i] << ", ";
+          }
+          std::cout << std::endl;
+
+
+          mpc_x_vals.clear();
+          mpc_y_vals.clear();
+          mpc_x_vals.resize(nn);
+          mpc_y_vals.resize(nn);
+          for (int i = 0; i < nn; ++i) {
+            mpc_x_vals[i] = vars[x_start + i];
+            mpc_y_vals[i] = vars[y_start + i];
+          }
+
+          msgJson["mpc_x"] = mpc_x_vals;
+          msgJson["mpc_y"] = mpc_y_vals;
+
+//          std::cout << "x1   = " << vars[0] << std::endl;
+//          std::cout << "y1   = " << vars[1] << std::endl;
+//          std::cout << "psi1 = " << vars[2] << std::endl;
+//          std::cout << "v1   = " << vars[3] << std::endl;
+//          std::cout << "delta = " << vars[6] << std::endl;
+//          std::cout << "a     = " << vars[7] << std::endl;
+
+          steer_value = vars[delta_start]; // -0.012; //6043625087635; // vars[6];
+          throttle_value = vars[a_start]; //vars[7];
+
+
+
+          std::cout << "STEER VALUE = " << steer_value << std::endl;
 
 
           // Save prev state
@@ -414,6 +523,9 @@ int main() {
           prev_state[3] = v;
           prev_state[4] = steer_value;
           prev_state[5] = throttle_value;
+
+          prev_throttle = throttle_value;
+          prev_steer_value = steer_value;
 
 
 
