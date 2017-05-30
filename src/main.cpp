@@ -129,7 +129,7 @@ int main() {
 
   StateHistory state_history(2.0);
 
-  int polyOrder = 2;
+  int polyOrder = 3;
   double Lf = 2.67;
 
   auto prev_clk = std::chrono::high_resolution_clock::now();
@@ -158,14 +158,18 @@ int main() {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
+//    std::cout << "ON_MESSAGE =======" << std::endl;
     string sdata = string(data).substr(0, length);
     cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
+//      std::cout << "ON_MESSAGE ======= 1" << std::endl;
       if (s != "") {
+//        std::cout << "ON_MESSAGE ======= 2" << std::endl;
         auto j = json::parse(s);
         string event = j[0].get<string>();
         if (event == "telemetry") {
+//          std::cout << "ON_MESSAGE ======= 3" << std::endl;
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
@@ -405,7 +409,7 @@ int main() {
 
           // Calculate current CTE
           double cte = polyeval(coeffs, 0); // expected - current (y = 0)
-          double epsi = - atan(coeffs[1] + coeffs[2] * 0.0); // mul 0.0 left for clarity here x = 0.0
+          double epsi = - (atan(coeffs[1] + 2 * coeffs[2] * 0.0 + 3 * coeffs[3] * 0.0 * 0.0)); // mul 0.0 left for clarity here x = 0.0
           std::cout << "CTE  = " << cte << std::endl;
           std::cout << "EPSI = " << epsi << std::endl;
 
@@ -416,14 +420,15 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value = 0.6; // * cte;
-          double throttle_value = 0.2;
+          double steer_value; // = 0.6; // * cte;
+          double throttle_value; // = 0.2;
+
 
 
 
           // Initialize start state (we calculate everything in car coordinate)
-          Eigen::VectorXd state_mpc(6);
-          state_mpc << 0.0, 0.0, 0.0, v, cte, epsi;
+          Eigen::VectorXd state_mpc(8);
+          state_mpc << 0.0, 0.0, 0.0, v, cte, epsi, prev_steer_value, prev_throttle;
 
           // MPC Solve
           auto vars = mpc.Solve(state_mpc, coeffs, state_history.averageDt());
@@ -498,6 +503,8 @@ int main() {
             mpc_y_vals[i] = vars[y_start + i];
           }
 
+
+
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -508,8 +515,10 @@ int main() {
 //          std::cout << "delta = " << vars[6] << std::endl;
 //          std::cout << "a     = " << vars[7] << std::endl;
 
-          steer_value = vars[delta_start]; // -0.012; //6043625087635; // vars[6];
-          throttle_value = vars[a_start]; //vars[7];
+
+
+          steer_value = vars[delta_start + 1]; // -0.012; //6043625087635; // vars[6];
+          throttle_value = vars[a_start + 1]; //vars[7];
 
 
 
@@ -546,6 +555,12 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
+
+
+          auto end_clk = std::chrono::high_resolution_clock::now();
+          const double whole_cycle = std::chrono::duration<double>(end_clk - clk).count();
+          std::cout << "WHOLE CYCLE = " << whole_cycle << std::endl;
+
           this_thread::sleep_for(chrono::milliseconds(100));
           ws->send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }

@@ -11,7 +11,7 @@ size_t N = 20;
 
 double ref_cte = 0.0;
 double ref_epsi = 0.0;
-double ref_v = 20;
+double ref_v = 50;
 
 // This value assumes the model presented in the classroom is used.
 //
@@ -84,6 +84,9 @@ class FG_eval {
     fg[1 + cte_start] = vars[cte_start];
     fg[1 + epsi_start] = vars[epsi_start];
 
+    fg[1 + delta_start] = vars[delta_start];
+    fg[1 + delta_start + 1] = vars[a_start];
+
 
     // The rest of the constraints
     for (int i = 0; i < N - 1; i++) {
@@ -106,11 +109,11 @@ class FG_eval {
       AD<double> a = vars[a_start + i];
 
 
-      AD<double> cte0diff = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 - y0;
+      AD<double> cte0diff = coeffs[0] + coeffs[1] * x0 + coeffs[2] * x0 * x0 + coeffs[3] * x0 * x0 * x0 - y0;
 
 
 
-      AD<double> epsi0diff = psi0 - CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0);
+      AD<double> epsi0diff = psi0 - CppAD::atan(coeffs[1] + 2 * coeffs[2] * x0 + 3 * coeffs[3] * x0 * x0);
 
 
 
@@ -124,10 +127,10 @@ class FG_eval {
       // TODO: Setup the rest of the model constraints
       fg[2 + x_start + i] = x1 - (x0 + 1.60934 * 1000.0 * v0 * CppAD::cos(psi0) * dt / 3600.0);
       fg[2 + y_start + i] = y1 - (y0 + 1.60934 * 1000.0 * v0 * CppAD::sin(psi0) * dt / 3600.0);
-      fg[2 + psi_start + i] = psi1 - (psi0 + 1000.0 * v0 * delta / (Lf * 1.60934) * dt / 3600.0);
+      fg[2 + psi_start + i] = psi1 - (psi0 - 1000.0 * v0 * delta / (Lf * 1.60934) * dt / 3600.0);
       fg[2 + v_start + i] = v1 - (v0 + 28000.0 * a * dt / 3600.0);
 
-      fg[2 + cte_start + i] = cte1 - (cte0diff + 1.60934 * v0 * CppAD::sin(epsi0) * dt / 3600.0);
+      fg[2 + cte_start + i] = cte1 - (cte0diff + 1.60934 * 1000.0 * v0 * CppAD::sin(epsi0) * dt / 3600.0);
       fg[2 + epsi_start + i] = epsi1 - (epsi0diff - 1000.0 * v0 * delta / (Lf * 1.60934) * dt / 3600.0);
 
     }
@@ -152,8 +155,10 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   double y = state[1];
   double psi = state[2];
   double v = state[3];
-  double cte = state[4]            ;
+  double cte = state[4];
   double epsi = state[5];
+  double prev_steer = state[6];
+  double prev_throttle = state[7];
 
   // TODO: Set the number of model variables (includes both states and inputs).
   // For example: If the state is a 4 element vector, the actuators is a 2
@@ -162,7 +167,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   // 4 * 10 + 2 * 9
   size_t n_vars = N * 6 + (N - 1) * 2;
   // TODO: Set the number of constraints
-  size_t n_constraints = N * 6;
+  size_t n_constraints = N * 6 + 2;
 
   // Initial value of the independent variables.
   // SHOULD BE 0 besides initial state.
@@ -177,6 +182,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   vars[v_start] = v;
   vars[cte_start] = cte;
   vars[epsi_start] = epsi;
+  vars[delta_start] = prev_steer;
+  vars[a_start] = prev_throttle;
 
 
   Dvector vars_lowerbound(n_vars);
@@ -216,6 +223,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   constraints_lowerbound[v_start] = v;
   constraints_lowerbound[cte_start] = cte;
   constraints_lowerbound[epsi_start] = epsi;
+  constraints_lowerbound[delta_start] = prev_steer;
+  constraints_lowerbound[delta_start+1] = prev_throttle;
 
   constraints_upperbound[x_start] = x;
   constraints_upperbound[y_start] = y;
@@ -223,6 +232,8 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   constraints_upperbound[v_start] = v;
   constraints_upperbound[cte_start] = cte;
   constraints_upperbound[epsi_start] = epsi;
+  constraints_upperbound[delta_start] = prev_steer;
+  constraints_upperbound[delta_start+1] = prev_throttle;
 
   // object that computes objective and constraints
   FG_eval fg_eval(coeffs, dt);
