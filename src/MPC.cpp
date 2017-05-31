@@ -67,7 +67,7 @@ class FG_eval {
 
     // Minimize the use of actuators.
     for (int i = 0; i < n - 1; i++) {
-      fg[0] += 100 * CppAD::pow(vars[delta_start + i], 2);
+      fg[0] += 1000 * CppAD::pow(vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i], 2);
     }
 
@@ -175,7 +175,7 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   double prev_throttle = state[7];
 
 
-  // We should be able to plan not father than 70m
+  // We should be able to plan not father than 100m
   // so we are going to estimate the N step given the average dt
   double nd = 100.0 / (1.60934 * 1000.0 * v * (dt / 3600.0));
   std::cout << "ND = " << nd << std::endl;
@@ -324,11 +324,6 @@ vector<double> MPC::Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs, double 
   }
 
   return res;
-
-//  return {solution.x[x_start + 1], solution.x[y_start + 1],
-//          solution.x[psi_start + 1], solution.x[v_start + 1],
-//          solution.x[cte_start + 1], solution.x[epsi_start + 1],
-//          solution.x[delta_start], solution.x[a_start]};
 
 
 }

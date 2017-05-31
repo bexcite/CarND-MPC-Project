@@ -158,18 +158,14 @@ int main() {
     // "42" at the start of the message means there's a websocket message event.
     // The 4 signifies a websocket message
     // The 2 signifies a websocket event
-//    std::cout << "ON_MESSAGE =======" << std::endl;
     string sdata = string(data).substr(0, length);
     cout << sdata << endl;
     if (sdata.size() > 2 && sdata[0] == '4' && sdata[1] == '2') {
       string s = hasData(sdata);
-//      std::cout << "ON_MESSAGE ======= 1" << std::endl;
       if (s != "") {
-//        std::cout << "ON_MESSAGE ======= 2" << std::endl;
         auto j = json::parse(s);
         string event = j[0].get<string>();
         if (event == "telemetry") {
-//          std::cout << "ON_MESSAGE ======= 3" << std::endl;
           // j[1] is the data JSON object
           vector<double> ptsx = j[1]["ptsx"];
           vector<double> ptsy = j[1]["ptsy"];
@@ -205,15 +201,15 @@ int main() {
           }
 
 
+          /*
           // Testing model params (to find out the real value of correct physics in "our world"
-
           delta_dist = 1.60934 * prev_speed * dt/3600.0;
           cycle_dist += delta_dist;
 
           delta_speed = v - prev_speed;
           prev_speed = v;
 
-          delta_speed_est = 24000.0 * prev_throttle * dt/3600.0;
+          delta_speed_est = 28000.0 * prev_throttle * dt/3600.0;
 
           cycle_speed += delta_speed_est;
 
@@ -234,14 +230,11 @@ int main() {
           std::cout << "C_DIST_EST = " << cycle_dist_est << std::endl;
           std::cout << "C_DIST_XY  = " << cycle_dist_xy << std::endl;
 
-          // <<<<<< end of testing
-
-
 
 
           // Estimate current state
-          double cpx = prev_state[0] + 1.60934 * prev_state[3] * cos(prev_state[2]) * dt / 3600.0;
-          double cpy = prev_state[1] - 1.60934 * prev_state[3] * sin(prev_state[2]) * dt / 3600.0;
+          double cpx = prev_state[0] + 1.60934 * 1000.0 * prev_state[3] * cos(prev_state[2]) * dt / 3600.0;
+          double cpy = prev_state[1] + 1.60934 * 1000.0 * prev_state[3] * sin(prev_state[2]) * dt / 3600.0;
           double cpsi = prev_state[2] - 1000.0 * prev_state[3] * prev_steer_value / (Lf * 1.60934) * dt / 3600.0;
           double cv = prev_state[3] + 28000.0 * prev_throttle * dt / 3600.0;
 
@@ -260,6 +253,8 @@ int main() {
           double throttle_calc = (v - prev_state[3]) / (dt / 3600.0);
           std::cout << "THROTTLE_CALC  = " << throttle_calc << std::endl;
 
+          // <<<<<< end of testing
+*/
 
 
           // Make current state vector
@@ -292,12 +287,6 @@ int main() {
                       - (px * cos(psi) + py * sin(psi));
             ptsy[i] = - 1.0 *  ptsxi * sin(psi) + ptsyi * cos(psi)
                       + px * sin(psi) - py * cos(psi);
-//            std::cout << "ptsx[" << i << "] = " << ptsyi << std::endl;
-//            std::cout << "sin(psi) = " << sin(psi) << std::endl;
-//            std::cout << - 1.0 *  ptsxi * sin(psi) << std::endl;
-//            std::cout << ptsyi * cos(psi) << std::endl;
-//            std::cout << px * sin(psi) << std::endl;
-//            std::cout << - py * cos(psi) << std::endl;
           }
 
           // Calculate coeffs
@@ -308,100 +297,21 @@ int main() {
 
 
 
-
-
-
           json msgJson;
-
-
-
-          //Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
 
-//          msgJson["mpc_x"] = mpc_x_vals;
-//          msgJson["mpc_y"] = mpc_y_vals;
-
-
-          // Convert ptsx and ptsy to car coordinates
-          // Transform matrix
-          // [cos(psi), -sin(psi), px ]
-          // [sin(psi),  cos(psi), py ]
-          // [       0,         0,  1 ]
-
-          // Inverse of transformation matrix
-          // [ cos(psi), sin(psi), - (  px * cos(psi) + py * sin(psi)) ]    [ ptsx[0] ]
-          // [-sin(psi), cos(psi), - (- px * sin(psi) + py * cos(psi)) ]  * [ ptsy[0] ]
-          // [        0,        0,                                   1 ]    [       1 ]
-
-          // Test ptsx transformation
-          // "ptsx":{-9.93,11.95,34.12,53.85,74.31,96.88},
-          // "ptsy":{19.48,42.54,66.68,88.81,112.49,139.38}
-
-//          ptsx = {10.0, 20.0};
-//          ptsy = {0.0, 0.0};
-//          px = 5.0;
-//          py = 0.0;
-//          psi = 1.5707963268;
-//
-//          std::cout << "pos: " << px << ", " << py << ", " << psi << std::endl;
-
-
-
-
-//          json jtemp;
-//          jtemp["ptsx"] = ptsx;
-//          jtemp["ptsy"] = ptsy;
-//          std::cout << "transf: " << jtemp.dump() << std::endl;
-
-
-/*
-          mpc_x_vals.resize(pts_size);
-          mpc_y_vals.resize(pts_size);
-          for (int i = 0; i < pts_size; ++i) {
-            mpc_x_vals[i] = ptsx[i];
-            mpc_y_vals[i] = polyeval(coeffs, ptsx[i]);
-//            std::cout << "mpc_xy_vals[" << i << "] = ("
-//                      << mpc_x_vals[i] << ", " << mpc_y_vals[i] << ")" << std::endl;
-          }
-
-
-//          jtemp.clear();
-//          jtemp["mpc_x_vals"] = mpc_x_vals;
-//          jtemp["mpc_y_vals"] = mpc_y_vals;
-//          std::cout << "polyfit line: " << jtemp.dump() << std::endl;
-
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
-*/
-
-
           //Display the waypoints/reference line
-//          vector<double> next_x_vals = {10.0, 20.0, 100.0, 200.0, 600.0};
-//          vector<double> next_y_vals = {0.0, 0.0, 0.0, 0.0, 0.0};
           vector<double> next_x_vals; // = ptsx;
           vector<double> next_y_vals; // = ptsy;
-//          vector<double> next_x_vals = {-9.93,11.95,34.12,53.85,74.31,96.88};
-//          vector<double> next_y_vals = {19.48,42.54,66.68,88.81,112.49,139.38};
-//          vector<double> next_x_vals = {9.93,11.95,34.12,53.85,74.31,96.88};
-//          vector<double> next_y_vals = {0.48,0.54,0.68,0.81,0.49,0.38};
-
-
-                  //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
-          // the points in the simulator are connected by a Yellow line
 
           next_x_vals.resize(pts_size);
           next_y_vals.resize(pts_size);
           for (int i = 0; i < pts_size; ++i) {
             next_x_vals[i] = ptsx[i];
             next_y_vals[i] = polyeval(coeffs, ptsx[i]);
-//            std::cout << "mpc_xy_vals[" << i << "] = ("
-//                      << mpc_x_vals[i] << ", " << mpc_y_vals[i] << ")" << std::endl;
           }
-
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
@@ -424,8 +334,6 @@ int main() {
           double throttle_value; // = 0.2;
 
 
-
-
           // Initialize start state (we calculate everything in car coordinate)
           Eigen::VectorXd state_mpc(8);
           state_mpc << 0.0, 0.0, 0.0, v, cte, epsi, prev_steer_value, prev_throttle;
@@ -443,8 +351,7 @@ int main() {
           size_t delta_start = epsi_start + nn;
           size_t a_start = delta_start + nn - 1;
 
-
-
+          /*
           std::cout << "XXS = " << std::fixed << std::setprecision(4);
           for (int i = x_start; i < y_start; ++i) {
             std::cout << vars[i] << ", ";
@@ -492,10 +399,15 @@ int main() {
             std::cout << vars[i] << ", ";
           }
           std::cout << std::endl;
+          */
 
 
-          mpc_x_vals.clear();
-          mpc_y_vals.clear();
+          //Display the MPC predicted trajectory
+          vector<double> mpc_x_vals;
+          vector<double> mpc_y_vals;
+
+//          mpc_x_vals.clear();
+//          mpc_y_vals.clear();
           mpc_x_vals.resize(nn);
           mpc_y_vals.resize(nn);
           for (int i = 0; i < nn; ++i) {
@@ -503,29 +415,18 @@ int main() {
             mpc_y_vals[i] = vars[y_start + i];
           }
 
-
-
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
-
-//          std::cout << "x1   = " << vars[0] << std::endl;
-//          std::cout << "y1   = " << vars[1] << std::endl;
-//          std::cout << "psi1 = " << vars[2] << std::endl;
-//          std::cout << "v1   = " << vars[3] << std::endl;
-//          std::cout << "delta = " << vars[6] << std::endl;
-//          std::cout << "a     = " << vars[7] << std::endl;
 
 
 
           steer_value = vars[delta_start + 1]; // -0.012; //6043625087635; // vars[6];
           throttle_value = vars[a_start + 1]; //vars[7];
 
-
-
           std::cout << "STEER VALUE = " << steer_value << std::endl;
 
 
-          // Save prev state
+          // Save prev state (debug purpose)
           prev_state[0] = px;
           prev_state[1] = py;
           prev_state[2] = psi;
